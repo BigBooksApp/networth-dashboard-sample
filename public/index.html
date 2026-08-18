@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Net Worth · BigBooks</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%B0%3C/text%3E%3C/svg%3E" />
+</head>
+<body>
+  <main class="wrap">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">BigBooks</p>
+        <h1>Net Worth</h1>
+      </div>
+      <div class="topbar-actions">
+        <div class="period" role="group" aria-label="Time period">
+          <button data-period="MONTH" class="is-active" type="button">Monthly</button>
+          <button data-period="QUARTER" type="button">Quarterly</button>
+          <button data-period="YEAR" type="button">Yearly</button>
+        </div>
+        <button id="link-btn" class="primary-btn" type="button" hidden>+ Link account</button>
+        <button id="signout" class="ghost-btn" type="button" hidden>Sign out</button>
+      </div>
+    </header>
+
+    <section class="connect card" id="connect" hidden>
+      <h2 id="connect-title">Connect your BigBooks account</h2>
+      <p class="muted" id="connect-msg">
+        Sign in with BigBooks to load your net worth. Nothing is stored on a server —
+        the token lives only in this browser tab.
+      </p>
+      <button id="connect-btn" class="primary-btn" type="button">Sign in with BigBooks</button>
+    </section>
+
+    <div id="app" hidden>
+
+    <section class="connect card" id="empty" hidden>
+      <h2>No linked accounts yet</h2>
+      <p class="muted">Securely connect a bank, card, or investment account through Plaid to see your net worth.</p>
+      <button id="empty-link-btn" class="primary-btn" type="button">+ Link an account</button>
+    </section>
+
+    <section class="hero" aria-live="polite">
+      <p class="hero-label">Current net worth</p>
+      <div class="hero-value" id="hero-value">—</div>
+      <div class="hero-change" id="hero-change"></div>
+      <p class="hero-asof" id="hero-asof"></p>
+    </section>
+
+    <section class="tiles" id="tiles" aria-label="Balance summary"></section>
+
+    <section class="card chart-card">
+      <div class="card-head">
+        <h2>Net worth over time</h2>
+        <span class="muted" id="chart-range"></span>
+      </div>
+      <figure class="chart" id="chart">
+        <div class="placeholder">Loading…</div>
+      </figure>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Accounts</h2>
+        <span class="muted" id="accounts-note"></span>
+      </div>
+      <div id="accounts"></div>
+    </section>
+    </div><!-- /#app -->
+
+    <div id="error" class="error" hidden></div>
+    <footer class="foot">Data from the BigBooks API · read-only</footer>
+  </main>
+
+  <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
