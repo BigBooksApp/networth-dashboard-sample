@@ -33,8 +33,9 @@ The access token lives only in `sessionStorage` for the current tab.
 
 ### Linking accounts (Plaid)
 
-The app loads Plaid's Link SDK (`cdn.plaid.com`) and drives the standard Link flow —
-BigBooks holds the Plaid client id/secret, so none are needed in the browser:
+The app loads Plaid's Link SDK (`cdn.plaid.com`) and drives the standard Link flow. No
+Plaid credentials go in the browser — BigBooks calls Plaid server-side with the client id
+and secret **you** stored on your account (see [Bring your own Plaid credentials](#bring-your-own-plaid-credentials)):
 
 ```
 Click "+ Link account"
@@ -48,8 +49,34 @@ Click "+ Link account"
 
 The exchange sets `webhook` to `…/v1/plaid/webhook` — the field is required, and it
 must be the API's own webhook URL, which is what BigBooks itself registers when it
-mints the Link token. Requires the BigBooks environment to have Plaid credentials
-configured.
+mints the Link token.
+
+## Bring your own Plaid credentials
+
+**BigBooks does not ship Plaid credentials and will not spend anyone else's.** Linking an
+account calls Plaid with **a client id and secret you stored yourself**, and the Plaid
+usage is billed to your Plaid account.
+
+Add them at **<https://www.bigbooks.app/data-secrets>** (sign-in required) — the page takes
+a **Plaid client ID** and a **Plaid secret**, which you get from the
+[Plaid dashboard](https://dashboard.plaid.com/developers/keys). Without them, the very
+first call of the link flow fails with `500 internal_error` and the message
+*"Plaid secret could not be resolved"*.
+
+Two details worth internalising:
+
+- Credentials are stored **per party**, and the party that matters is the one that **owns
+  the OAuth client** this app signs in with — the account you were signed in as at
+  <https://www.bigbooks.app/clients> when you created the client. Register the client under
+  one account and store the credentials under another and linking fails.
+- There is **nowhere in this repository to put a Plaid secret**, and that is deliberate.
+  Anything in `config.js` ships to every browser that loads the page. The API does accept
+  `X-Plaid-Client-ID` and `X-Plaid-Secret` headers as a fallback for server-side callers,
+  but stored credentials take precedence over them and a browser app must never send them.
+
+Your Plaid account's **environment matters too**: sandbox credentials only open sandbox
+institutions (use Plaid's test logins), production credentials need Plaid to have approved
+your account for production access.
 
 ## Setup
 
@@ -69,7 +96,13 @@ Create one at **<https://www.bigbooks.app/clients>** (sign-in required). New cli
 > Note that `http://localhost:5173` and `http://127.0.0.1:5173` are different origins, and
 > pages opened via `file://` send `Origin: null`, which can never be allowed.
 
-### 2. Configure the client id
+### 2. Store your Plaid credentials
+
+At **<https://www.bigbooks.app/data-secrets>**, signed in as the account that owns the
+client from step 1. See [Bring your own Plaid credentials](#bring-your-own-plaid-credentials)
+above. Skip this only if you do not intend to link an account.
+
+### 3. Configure the client id
 
 Edit [`public/config.js`](public/config.js) and set `CLIENT_ID`:
 
@@ -80,7 +113,7 @@ export const CONFIG = {
 };
 ```
 
-### 3. Serve the `public/` folder
+### 4. Serve the `public/` folder
 
 Any static file server works — the app just needs to be served over `http://`
 (ES modules and OAuth redirects don't work from `file://`). For example:
