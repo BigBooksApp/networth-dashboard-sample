@@ -109,7 +109,7 @@ async function apiGet(path, { query, party } = {}) {
   try {
     res = await fetch(url, { headers });
   } catch (e) {
-    throw new Error(`Network/CORS error calling ${path}. Is this origin allow-listed on the BigBooks OAuth client? (${e.message})`);
+    throw new Error(`Network error calling ${path}. The API allows any origin, so this is usually connectivity or a blocked request rather than CORS. (${e.message})`);
   }
   if (res.status === 401) { clearToken(); throw new AuthExpired('Session expired'); }
   const text = await res.text();
@@ -156,8 +156,8 @@ function partyFromClaims(claims) {
 }
 
 // Prefer the party claim from the id_token / access_token (no network call).
-// Only fall back to the userInfo endpoint if the claim isn't in either token —
-// that fallback needs CORS enabled on /oauth2/userInfo as well.
+// Only fall back to the documented bootstrap, GET /oauth2/userInfo, if the claim
+// isn't in either token.
 async function fetchParty() {
   const token = getToken();
   const fromToken = partyFromClaims(decodeJwt(token.id_token || '')) ||
@@ -167,7 +167,7 @@ async function fetchParty() {
   const res = await fetch(CONFIG.USERINFO_URL, {
     headers: { Authorization: `Bearer ${token.access_token}`, Accept: 'application/json' },
   }).catch((e) => {
-    throw new Error(`Could not resolve your party. The bigbooks:party claim was not in the token, and the userInfo call was blocked (likely CORS on /oauth2/userInfo). ${e.message}`);
+    throw new Error(`Could not resolve your party: the userInfo call was blocked. The CORS allow-list is built from your client's registered redirect URIs — check that ${CONFIG.REDIRECT_URI} is registered exactly. (${e.message})`);
   });
   if (res.status === 401) { clearToken(); throw new AuthExpired('Session expired'); }
   if (!res.ok) throw new Error(`userInfo failed (${res.status})`);
