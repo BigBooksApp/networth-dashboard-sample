@@ -5,6 +5,10 @@ No backend, no build step — just HTML, CSS, and vanilla JS. Authentication use
 **OAuth 2.0 Authorization Code + PKCE** entirely in the browser, so there is no
 client secret to protect and nothing runs server-side.
 
+![The dashboard: net worth, tiles, trend chart, and the account breakdown](docs/dashboard.png)
+
+<sup>Screenshot from `#demo` mode — synthetic figures, no account needed.</sup>
+
 It shows:
 
 - **Current net worth** with the change over the selected period
@@ -106,6 +110,7 @@ public/
   config.js     # ← your CLIENT_ID and endpoints
   app.js        # PKCE auth, API calls, SVG chart, rendering
 openapi.json    # the BigBooks API spec, for reference
+docs/           # the README screenshot
 .claude/
   launch.json   # convenience config to serve public/ on :5173
 ```
