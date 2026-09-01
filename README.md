@@ -167,3 +167,7 @@ covers tenancy, concurrency, errors, and pagination conventions across every end
 
 [envelope-budgeting-sample](https://github.com/BigBooksApp/envelope-budgeting-sample) — the
 same static-app pattern over the budgeting API, with zero-based envelopes.
+
+## Questions
+
+Ask in the [BigBooks Developers Discord](https://discord.gg/DTwq2Ukuty).
