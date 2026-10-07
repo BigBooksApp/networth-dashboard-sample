@@ -43,13 +43,12 @@ Click "+ Link account"
   │  Plaid.create({ token }).open()            ──►  user authenticates with their bank
   │  onSuccess(public_token, metadata)
   │  POST /v1/plaid/access/token               ──►  server exchanges + saves the item
-  │     { publicToken, party, linkSessionId, webhook, institution, accounts }
+  │     { publicToken, party, linkSessionId, institution }
   └► refresh the dashboard
 ```
 
-The exchange sets `webhook` to `…/v1/plaid/webhook` — the field is required, and it
-must be the API's own webhook URL, which is what BigBooks itself registers when it
-mints the Link token.
+There is no webhook to send: BigBooks sets each item's webhook to its own receiver, which
+then keeps the item current.
 
 ## Bring your own Plaid credentials
 
@@ -60,8 +59,7 @@ usage is billed to your Plaid account.
 Add them at **<https://www.bigbooks.app/data-secrets>** (sign-in required) — the page takes
 a **Plaid client ID** and a **Plaid secret**, which you get from the
 [Plaid dashboard](https://dashboard.plaid.com/developers/keys). Without them, the very
-first call of the link flow fails with `500 internal_error` and the message
-*"Plaid secret could not be resolved"*.
+first call of the link flow fails with `400` and the error code `missing_credentials`.
 
 Two details worth internalising:
 
@@ -158,7 +156,8 @@ docs/           # the README screenshot
 | Start Plaid Link | `POST /v1/plaid/public/token` → `{ token }` |
 | Finish Plaid Link | `POST /v1/plaid/access/token` (exchange public token, save item) |
 
-All API calls send `X-Acting-Party-ID: <your party id>`.
+The balance-sheet and account calls send `X-Acting-Party-ID: <your party id>`; the Plaid
+token calls take no such header — the exchange names the party in its body.
 
 Further reading: the [integrator guide](https://api.bigbooks.app/docs/integrator-guide.md)
 covers tenancy, concurrency, errors, and pagination conventions across every endpoint.
