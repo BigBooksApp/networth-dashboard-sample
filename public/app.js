@@ -5,6 +5,12 @@ const $ = (sel) => document.querySelector(sel);
 const usd0 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 const usd2 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const money = (n) => (n == null ? '—' : (Math.abs(n) >= 1000 ? usd0 : usd2).format(n));
+// An account's balance is in its own currency, which need not be USD.
+const moneyIn = (n, unit = 'USD') => {
+  if (n == null) return '—';
+  try { return new Intl.NumberFormat('en-US', { style: 'currency', currency: unit, maximumFractionDigits: Math.abs(n) >= 1000 ? 0 : 2 }).format(n); }
+  catch { return `${n.toFixed(2)} ${unit}`; }
+};
 const fmtDate = (iso, opts = { year: 'numeric', month: 'short' }) =>
   new Date(iso + 'T00:00:00').toLocaleDateString('en-US', opts);
 
@@ -95,6 +101,15 @@ const cleanUrl = () => history.replaceState({}, '', CONFIG.REDIRECT_URI);
 // ----------------------------------------------------------- API requests
 class AuthExpired extends Error {}
 
+// Error bodies are ExceptionResponse: { errors: [...], code }. Fall back to raw text.
+function apiError(status, path, text) {
+  try {
+    const { errors, code } = JSON.parse(text);
+    if (Array.isArray(errors)) return new Error(`${status}${code ? ` ${code}` : ''} from ${path}: ${errors.join('; ')}`);
+  } catch { /* not JSON */ }
+  return new Error(`${status} from ${path}: ${text.slice(0, 300)}`);
+}
+
 async function apiGet(path, { query, party } = {}) {
   const token = getToken();
   if (!token) throw new AuthExpired('Not signed in');
@@ -113,7 +128,7 @@ async function apiGet(path, { query, party } = {}) {
   }
   if (res.status === 401) { clearToken(); throw new AuthExpired('Session expired'); }
   const text = await res.text();
-  if (!res.ok) throw new Error(`${res.status} from ${path}: ${text.slice(0, 300)}`);
+  if (!res.ok) throw apiError(res.status, path, text);
   return text ? JSON.parse(text) : null;
 }
 
@@ -135,7 +150,7 @@ async function apiPost(path, { party, body } = {}) {
   }
   if (res.status === 401) { clearToken(); throw new AuthExpired('Session expired'); }
   const text = await res.text();
-  if (!res.ok) throw new Error(`${res.status} from ${path}: ${text.slice(0, 300)}`);
+  if (!res.ok) throw apiError(res.status, path, text);
   return text ? JSON.parse(text) : null;
 }
 
@@ -203,7 +218,7 @@ async function loadAccounts(party) {
   const data = await apiGet('/v1/accounts', {
     party,
     query: {
-      include: 'balance', account_types: 'ASSET,LIABILITY', unit_type: 'USD',
+      include: 'balance', account_types: 'ASSET,LIABILITY',
       perspective: 'COMPOSITE', page_size: 200, page_number: 0,
     },
   });
@@ -212,7 +227,10 @@ async function loadAccounts(party) {
       name: a.name,
       type: a.accountType,
       sub: a.assetType || a.liabilityType || null,
+      // In the account's own currency and sign convention: a liability's is what is owed,
+      // positive in the ordinary case.
       current: a?.balance?.current ?? null,
+      unit: a.unitType || 'USD',
     }))
     .filter((a) => a.current != null);
 }
@@ -348,12 +366,16 @@ function renderAccounts(accounts) {
   host.innerHTML = groups.map((g) => {
     const rows = accounts.filter((a) => a.type === g.type).sort((a, b) => Math.abs(b.current) - Math.abs(a.current));
     if (!rows.length) return '';
-    const subtotal = rows.reduce((s, a) => s + a.current, 0);
+    // Balances stay in each account's own currency, and /v1/accounts offers no converted
+    // total, so only add a group up when every row shares one currency. The converted
+    // figures are the balance sheet's, in the tiles above.
+    const units = new Set(rows.map((a) => a.unit));
+    const subtotal = units.size === 1 ? moneyIn(rows.reduce((s, a) => s + a.current, 0), rows[0].unit) : '<span class="type">mixed currencies</span>';
     const body = rows.map((a) =>
       `<tr><td class="name"><span class="dot" style="background:${g.dot}"></span>${escapeHtml(a.name)}` +
       (a.sub ? ` <span class="type">${escapeHtml(prettyType(a.sub))}</span>` : '') + `</td>` +
-      `<td class="num${g.sign < 0 ? ' neg' : ''}">${money(a.current)}</td></tr>`).join('');
-    return `<table class="accounts"><thead><tr><th>${g.label}</th><th class="num">${money(subtotal)}</th></tr></thead><tbody>${body}</tbody></table>`;
+      `<td class="num${g.sign < 0 ? ' neg' : ''}">${moneyIn(a.current, a.unit)}</td></tr>`).join('');
+    return `<table class="accounts"><thead><tr><th>${g.label}</th><th class="num">${subtotal}</th></tr></thead><tbody>${body}</tbody></table>`;
   }).join('<div style="height:14px"></div>');
 }
 const prettyType = (t) => String(t).replace(/^_/, '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
@@ -381,7 +403,6 @@ async function openPlaidLink() {
   setLinkBusy(true);
   try {
     const { token } = await apiPost('/v1/plaid/public/token', {
-      party: state.party,
       body: {
         clientName: 'BigBooks Net Worth',
         language: 'en',
@@ -419,16 +440,11 @@ async function openPlaidLink() {
 function exchangePublicToken(publicToken, metadata) {
   const inst = metadata.institution || {};
   return apiPost('/v1/plaid/access/token', {
-    party: state.party,
     body: {
       publicToken,
       party: state.party,
       linkSessionId: metadata.link_session_id,
-      webhook: `${CONFIG.API}/v1/plaid/webhook`,
       institution: inst.institution_id ? { id: inst.institution_id, name: inst.name } : null,
-      accounts: (metadata.accounts || []).map((a) => ({
-        id: a.id, name: a.name, mask: a.mask, type: a.type, subtype: a.subtype,
-      })),
     },
   });
 }
@@ -546,9 +562,9 @@ function runDemo() {
     { name: 'Fidelity Brokerage', type: 'ASSET', sub: 'BROKERAGE', current: 128400 },
     { name: 'Roth IRA', type: 'ASSET', sub: 'ROTH', current: 76500 },
     { name: 'Primary Residence', type: 'ASSET', sub: 'OTHER', current: 62000 },
-    { name: 'Mortgage', type: 'LIABILITY', sub: 'OTHER', current: -118500 },
-    { name: 'Sapphire Card', type: 'LIABILITY', sub: 'CREDIT', current: -3820 },
-    { name: 'Auto Loan', type: 'LIABILITY', sub: 'OTHER', current: -14200 },
+    { name: 'Mortgage', type: 'LIABILITY', sub: 'OTHER', current: 118500 },
+    { name: 'Sapphire Card', type: 'LIABILITY', sub: 'CREDIT_CARD', current: 3820 },
+    { name: 'Auto Loan', type: 'LIABILITY', sub: 'OTHER', current: 14200 },
   ];
   renderHero(series); renderTiles(series); renderChart(series, 'MONTH'); renderAccounts(accounts);
 }
