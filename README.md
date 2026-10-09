@@ -1,6 +1,6 @@
 # BigBooks Net Worth Dashboard
 
-A simple, **fully static** net worth dashboard built on the [BigBooks API](https://api.bigbooks.app).
+A simple, **fully static** net worth dashboard built on the [BigBooks API](https://staging.bigbooks.app/api).
 No backend, no build step — just HTML, CSS, and vanilla JS. Authentication uses
 **OAuth 2.0 Authorization Code + PKCE** entirely in the browser, so there is no
 client secret to protect and nothing runs server-side.
@@ -22,7 +22,7 @@ It shows:
 
 ```
 Browser (this static app)
-  │  1. Authorization Code + PKCE  ──►  www.bigbooks.app/oauth2/authorize + /oauth2/token
+  │  1. Authorization Code + PKCE  ──►  staging.bigbooks.app/oauth2/authorize + /oauth2/token
   │  2. decode id_token            ──►  reads the `bigbooks:party` claim (your party id)
   │     (falls back to GET /oauth2/userInfo only if the claim isn't in the token)
   │  3. GET /v1/balance_sheets     ──►  net worth over time   (X-Acting-Party-ID = your party)
@@ -56,7 +56,7 @@ then keeps the item current.
 account calls Plaid with **a client id and secret you stored yourself**, and the Plaid
 usage is billed to your Plaid account.
 
-Add them at **<https://www.bigbooks.app/data-secrets>** (sign-in required) — the page takes
+Add them at **<https://staging.bigbooks.app/data-secrets>** (sign-in required) — the page takes
 a **Plaid client ID** and a **Plaid secret**, which you get from the
 [Plaid dashboard](https://dashboard.plaid.com/developers/keys). Without them, the very
 first call of the link flow fails with `400` and the error code `missing_credentials`.
@@ -65,7 +65,7 @@ Two details worth internalising:
 
 - Credentials are stored **per party**, and the party that matters is the one that **owns
   the OAuth client** this app signs in with — the account you were signed in as at
-  <https://www.bigbooks.app/clients> when you created the client. Register the client under
+  <https://staging.bigbooks.app/clients> when you created the client. Register the client under
   one account and store the credentials under another and linking fails.
 - There is **nowhere in this repository to put a Plaid secret**, and that is deliberate.
   Anything in `config.js` ships to every browser that loads the page. The API does accept
@@ -80,14 +80,14 @@ your account for production access.
 
 ### 1. Register a public OAuth client in BigBooks
 
-Create one at **<https://www.bigbooks.app/clients>** (sign-in required). New clients are
+Create one at **<https://staging.bigbooks.app/clients>** (sign-in required). New clients are
 **public** (`token_endpoint_auth_method: none`) with PKCE required by default. Configure:
 
 - **Redirect URI**: the exact URL you'll serve this app from, e.g. `http://localhost:5173/`
 - **Scopes**: `openid profile email` (`openid` is required — the app reads your
   party id from the `bigbooks:party` claim)
 
-> **CORS.** The API (`https://api.bigbooks.app/v1/`) allows any origin. The authorization
+> **CORS.** The API (`https://staging.bigbooks.app/api/v1/`) allows any origin. The authorization
 > server's `/oauth2/token` and `/oauth2/userInfo` allow only origins derived from active
 > clients' **registered redirect URIs** — so registering the redirect URI is the whole
 > setup, there is no separate origin field. The allow-list updates within about a minute.
@@ -96,7 +96,7 @@ Create one at **<https://www.bigbooks.app/clients>** (sign-in required). New cli
 
 ### 2. Store your Plaid credentials
 
-At **<https://www.bigbooks.app/data-secrets>**, signed in as the account that owns the
+At **<https://staging.bigbooks.app/data-secrets>**, signed in as the account that owns the
 client from step 1. See [Bring your own Plaid credentials](#bring-your-own-plaid-credentials)
 above. Skip this only if you do not intend to link an account.
 
@@ -107,7 +107,7 @@ Edit [`public/config.js`](public/config.js) and set `CLIENT_ID`:
 ```js
 export const CONFIG = {
   CLIENT_ID: 'your-public-client-id',
-  // ...everything else defaults to the production hosts
+  // ...everything else defaults to the BigBooks staging hosts
 };
 ```
 
@@ -159,7 +159,7 @@ docs/           # the README screenshot
 The balance-sheet and account calls send `X-Acting-Party-ID: <your party id>`; the Plaid
 token calls take no such header — the exchange names the party in its body.
 
-Further reading: the [integrator guide](https://api.bigbooks.app/docs/integrator-guide.md)
+Further reading: the [integrator guide](https://staging.bigbooks.app/api/docs/integrator-guide.md)
 covers tenancy, concurrency, errors, and pagination conventions across every endpoint.
 
 ## See also
